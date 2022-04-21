@@ -159,3 +159,9 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 .virtual_documents
+.ipynb_checkpoints
+**/.ipynb_checkpoints
+*/.ipynb_checkpoints
+notebooke/.ipynb_checkpoints
+notebooks/cache
+notebooks/.ipynb_checkpoints
