@@ -39,29 +39,28 @@ MOORE_SAFE_BREAKING_DISTANCE = lambda x: MOORE_AFTER_BREAK_SPLINE(
 ) + MOORE_BEFORE_BREAK_SPLINE(x)
 
 
-
 @dataclass
 class Configuration:
     # Default coordinate reference system
     base_crs: int
     # Local specific CRS
     local_crs: int
-    
+
     def load():
         """Load the config from disk"""
         this_dir = Path(__file__).parent.resolve()
         config_path = this_dir / "config.yaml"
-        
+
         schema = marshmallow_dataclass.class_schema(Configuration)()
 
-        with open(config_path, 'r') as fin:
+        with open(config_path, "r") as fin:
             raw_config = fin.read()
             config_parsed = yaml.load(raw_config, Loader=yaml.CLoader)
             return schema.load(data=config_parsed)
 
 
 CONFIG = Configuration.load()
-        
+
 
 def capacity_moore(lanes: float, max_speed: float):
     """Maximum capacity for a road network based on
@@ -86,7 +85,7 @@ def add_speeds_to_graph(G: Union[nx.MultiDiGraph, nx.DiGraph, nx.Graph]):
             m = re.match(edge_data["max_speed"])
             if m:
                 speed_mph = int(m.group(1))
-                edge_data["speed_kph"] = speed_mph * 1.609 # MPH to KPH
+                edge_data["speed_kph"] = speed_mph * 1.609  # MPH to KPH
             else:
                 s = edge_data["max_speed"]
                 ValueError(f"Could not parse speed for edge ({u}, {v}): Got '{s}'")
@@ -150,9 +149,11 @@ def chunker(it, size):
         yield chunk
 
 
-def all_pairs_max_flow(network: nx.DiGraph, nodes: List[int], pool: Optional[Pool]=None):
+def all_pairs_max_flow(
+    network: nx.DiGraph, nodes: List[int], pool: Optional[Pool] = None
+):
     """Compute the max flow between all pairs of nodes on the given network"""
-    
+
     if pool is None:
         pool = Pool()
 
@@ -162,16 +163,22 @@ def all_pairs_max_flow(network: nx.DiGraph, nodes: List[int], pool: Optional[Poo
     n = len(nodes)
     its = chunker(combinations(nodes, 2), pool._processes)
     par = partial(_chunked_pairs_max_flow, network=network)
-    for batch_values, batch_flows in tqdm(pool.imap_unordered(par, its), total=n * (n - 1) // 2 // pool._processes, desc="All pairs Max Flow"):
+    for batch_values, batch_flows in tqdm(
+        pool.imap_unordered(par, its),
+        total=n * (n - 1) // 2 // pool._processes,
+        desc="All pairs Max Flow",
+    ):
         max_flows.update(batch_flows)
         max_flow_values.update(batch_values)
 
     return (max_flow_values, max_flows)
 
 
-def given_pairs_max_flow(network: nx.DiGraph, node_pairs: List[Tuple[int, int]], pool: Optional[Pool]=None):
+def given_pairs_max_flow(
+    network: nx.DiGraph, node_pairs: List[Tuple[int, int]], pool: Optional[Pool] = None
+):
     """Compute the max flow between all pairs of nodes on the given network"""
-    
+
     if pool is None:
         pool = Pool()
 
@@ -180,7 +187,11 @@ def given_pairs_max_flow(network: nx.DiGraph, node_pairs: List[Tuple[int, int]],
 
     its = chunker(node_pairs, pool._processes)
     par = partial(_chunked_pairs_max_flow, network=network)
-    for batch_values, batch_flows in tqdm(pool.imap_unordered(par, its), total=len(node_pairs) // pool._processes, desc="All pairs Max Flow"):
+    for batch_values, batch_flows in tqdm(
+        pool.imap_unordered(par, its),
+        total=len(node_pairs) // pool._processes,
+        desc="All pairs Max Flow",
+    ):
         max_flows.update(batch_flows)
         max_flow_values.update(batch_values)
 
@@ -190,18 +201,22 @@ def given_pairs_max_flow(network: nx.DiGraph, node_pairs: List[Tuple[int, int]],
 def _chunked_pairs_max_flow(pairs: List[Tuple[int, int]], network: nx.DiGraph):
     max_flows = {}
     max_flow_values = {}
-    
+
     for i, j in pairs:
         # make sure the pairs for max-flow are ordered, since max-flow is symmetric (TODO: Maybe?)
         i, j = min([i, j]), max([i, j])
-        max_flow_value, max_flow = nx.maximum_flow(network, i, j, flow_func=nx.algorithms.flow.shortest_augmenting_path)
+        max_flow_value, max_flow = nx.maximum_flow(
+            network, i, j, flow_func=nx.algorithms.flow.shortest_augmenting_path
+        )
         max_flows[(i, j)] = max_flow
         max_flow_values[(i, j)] = max_flow_value
-        
+
     return (max_flow_values, max_flows)
 
 
-def all_arc_removal_impact(network: nx.DiGraph, nodes: List[int], pool: Optional[Pool] = None):
+def all_arc_removal_impact(
+    network: nx.DiGraph, nodes: List[int], pool: Optional[Pool] = None
+):
     """
     Compute the impact of an arc removal on the max-flow between the given nodes
     """
@@ -212,18 +227,21 @@ def all_arc_removal_impact(network: nx.DiGraph, nodes: List[int], pool: Optional
     unperturbed_flow_values, unperturned_flows = all_pairs_max_flow(
         network, nodes, pool
     )
-    
-    
+
     impacts = defaultdict(lambda: defaultdict(list))
-    
+
     p_impact = partial(
-            arc_removal_impact,
-            network=network,
-            nodes=nodes,
-            unperturbed_flow_values=unperturbed_flow_values,
-            unperturned_flows=unperturned_flows,
-        )
-    for node, impact in tqdm(pool.imap_unordered(p_impact, network.edges()), total=len(network.edges()), desc="Removing arcs and determining impact"):
+        arc_removal_impact,
+        network=network,
+        nodes=nodes,
+        unperturbed_flow_values=unperturbed_flow_values,
+        unperturned_flows=unperturned_flows,
+    )
+    for node, impact in tqdm(
+        pool.imap_unordered(p_impact, network.edges()),
+        total=len(network.edges()),
+        desc="Removing arcs and determining impact",
+    ):
         impacts[node] = impact
 
     return impacts
@@ -242,9 +260,9 @@ def arc_removal_impact(
     network = network.copy()
     edge_data = network.get_edge_data(u, v)
     edge_data["capacity"] = 0
-    
+
     nodes_to_rerun = []
-    
+
     for i, j in combinations(nodes, 2):
         # make sure the pairs for max-flow are ordered, since max-flow is symmetric (TODO: Maybe?)
         i, j = min([i, j]), max([i, j])
@@ -252,18 +270,21 @@ def arc_removal_impact(
             impacts.append(0)
         else:
             nodes_to_rerun.append((i, j))
-            
-    #perturbed_flow_values, _perturned_flows = all_pairs_max_flow(network, nodes_to_rerun)
-    
+
+    # perturbed_flow_values, _perturned_flows = all_pairs_max_flow(network, nodes_to_rerun)
+
     for i, j in nodes_to_rerun:
-        max_flow_value, _max_flow = nx.maximum_flow(network, i, j, flow_func=nx.algorithms.flow.shortest_augmenting_path)
+        max_flow_value, _max_flow = nx.maximum_flow(
+            network, i, j, flow_func=nx.algorithms.flow.shortest_augmenting_path
+        )
         impacts.append(unperturbed_flow_values[(i, j)] - max_flow_value)
-        
+
     return (u, v), impacts
 
 
-
-def given_arc_removal_impact(network: nx.DiGraph, node_pairs: List[Tuple[int, int]], pool: Optional[Pool] = None):
+def given_arc_removal_impact(
+    network: nx.DiGraph, node_pairs: List[Tuple[int, int]], pool: Optional[Pool] = None
+):
     """
     Compute the impact of an arc removal on the max-flow between the given nodes
     """
@@ -274,17 +295,21 @@ def given_arc_removal_impact(network: nx.DiGraph, node_pairs: List[Tuple[int, in
     unperturbed_flow_values, unperturned_flows = given_pairs_max_flow(
         network, node_pairs, pool
     )
-    
+
     impacts = defaultdict(lambda: defaultdict(list))
-    
+
     p_impact = partial(
-            _given_arc_removal_impact_node,
-            network=network,
-            node_pairs=node_pairs,
-            unperturbed_flow_values=unperturbed_flow_values,
-            unperturned_flows=unperturned_flows,
-        )
-    for node, impact in tqdm(pool.imap_unordered(p_impact, network.edges()), total=len(network.edges()), desc="Removing arcs and determining impact"):
+        _given_arc_removal_impact_node,
+        network=network,
+        node_pairs=node_pairs,
+        unperturbed_flow_values=unperturbed_flow_values,
+        unperturned_flows=unperturned_flows,
+    )
+    for node, impact in tqdm(
+        pool.imap_unordered(p_impact, network.edges()),
+        total=len(network.edges()),
+        desc="Removing arcs and determining impact",
+    ):
         impacts[node] = impact
 
     return impacts
@@ -303,9 +328,9 @@ def _given_arc_removal_impact_node(
     network = network.copy()
     edge_data = network.get_edge_data(u, v)
     edge_data["capacity"] = 0
-    
+
     nodes_to_rerun = []
-    
+
     for i, j in node_pairs:
         # make sure the pairs for max-flow are ordered, since max-flow is symmetric (TODO: Maybe?)
         i, j = min([i, j]), max([i, j])
@@ -313,11 +338,11 @@ def _given_arc_removal_impact_node(
             impacts.append(0)
         else:
             nodes_to_rerun.append((i, j))
-            
-    #perturbed_flow_values, _perturned_flows = all_pairs_max_flow(network, nodes_to_rerun)
-    
+
+    # perturbed_flow_values, _perturned_flows = all_pairs_max_flow(network, nodes_to_rerun)
+
     for i, j in nodes_to_rerun:
         max_flow_value, _max_flow = nx.maximum_flow(network, i, j)
         impacts.append(unperturbed_flow_values[(i, j)] - max_flow_value)
-        
+
     return (u, v), impacts
