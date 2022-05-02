@@ -118,7 +118,8 @@ def preflow_push(network: nx.DiGraph, source: int, sink: int) -> nx.DiGraph:
                 delta = min(residual.nodes[cur]["excess"], c)
 
                 # Increase v's excess
-                residual.nodes[v]["excess"] = residual.nodes[v].get("excess", 0) + delta
+                residual.nodes[v]["excess"] = residual.nodes[v].get(
+                    "excess", 0) + delta
                 # Decrease u's excess
                 residual.nodes[u]["excess"] -= delta
 
@@ -150,6 +151,10 @@ def preflow_push(network: nx.DiGraph, source: int, sink: int) -> nx.DiGraph:
     for (u, v, c) in residual.edges(data="capacity"):
         if (v, u) in network.edges:
             flows[(v, u)] = c
+
+    for (u, v) in network.edges():
+        if (u, v) not in flows:
+            flows[(u, v)] = 0
 
     return flow_value, flows
 
@@ -185,6 +190,7 @@ class TestPreflowPush(TestCase):
                 (2, 3): 3,
                 (1, 2): 10,
                 (2, 5): 7,
+                (4, 1): 0,
                 (4, 5): 7,
                 (3, 4): 7,
             },
