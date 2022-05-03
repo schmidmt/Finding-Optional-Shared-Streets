@@ -1,0 +1,5 @@
+---
+# The base CRS is the WGS 84 (EPSG 4326) which GPS uses.
+base_crs: 4326
+# NAD83(2011) / Colorado Central (EPSG: 6427) in meters
+local_crs: 6427
