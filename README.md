@@ -12,7 +12,7 @@ To see the results of the research, see the notebooks
 
 * [Selecting candidate streets](./notebooks/BestNeighborhoodsStreets.ipynb)
 * [Determining Optimal Streets](./notebooks/StreetSelection.ipynb)
-* [Tutorial](./notebooks/Finding Optimal Shared Streets Tutorial.ipynb)
+* [Tutorial](./notebooks/FindingOptimalSharedStreetsTutorial.ipynb)
 
 ## Setup
 This project manages its dependencies with [Poetry](https://python-poetry.org/).
